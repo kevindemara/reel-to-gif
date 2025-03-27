@@ -10,20 +10,29 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-def download_reel_with_api(insta_url, output_filename):
-    api_url = f"https://api.bhawanigarg.com/social/instagram/?url={insta_url}"
-    response = requests.get(api_url)
-    response.raise_for_status()
+# ✅ Replace with your own API key when deploying
+RAPIDAPI_HOST = "instagram-reels-downloader2.p.rapidapi.com"
+RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
 
+def download_reel_with_api(insta_url, output_filename):
+    url_encoded = requests.utils.quote(insta_url, safe="")
+    endpoint = f"https://{RAPIDAPI_HOST}/.netlify/functions/api/getLink?url={url_encoded}"
+
+    headers = {
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
+    }
+
+    response = requests.get(endpoint, headers=headers)
+    response.raise_for_status()
     data = response.json()
 
-    # Attempt to extract video URL (may vary based on API's structure)
+    # Extract video URL from API response
     video_url = data.get("data", {}).get("url")
-
     if not video_url:
         raise Exception("Could not retrieve video URL from API response.")
 
-    # Now download the actual video file
+    # Download the video
     video_response = requests.get(video_url, stream=True)
     with open(output_filename, "wb") as f:
         for chunk in video_response.iter_content(chunk_size=1024):
