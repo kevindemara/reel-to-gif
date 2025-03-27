@@ -10,7 +10,7 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# ✅ Replace with your actual RapidAPI key when deploying
+# ✅ Replace with your actual RapidAPI key
 RAPIDAPI_HOST = "instagram-story-downloader-media-downloader.p.rapidapi.com"
 RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
 
@@ -25,10 +25,31 @@ def download_reel_with_api(insta_url, output_filename):
 
     response = requests.get(endpoint, headers=headers)
     response.raise_for_status()
-    data = response.json()
 
-    # Extract video URL from response (check structure)
-    video_url = data.get("media", [{}])[0].get("url")
+    try:
+        data = response.json()
+    except ValueError:
+        # Not JSON - log and raise
+        print("🚨 API did not return JSON. Raw response:")
+        print(response.text[:500])
+        raise Exception("API response is not in JSON format.")
+
+    # Try extracting the video URL
+    video_url = None
+
+    if isinstance(data, dict):
+        # Debug: print full response to logs
+        print("✅ API returned JSON. Full data:")
+        print(data)
+
+        # Try expected structure
+        if "media" in data:
+            media = data.get("media")
+            if isinstance(media, list) and media and isinstance(media[0], dict):
+                video_url = media[0].get("url")
+        elif "url" in data:
+            video_url = data["url"]
+
     if not video_url:
         raise Exception("Could not retrieve video URL from API response.")
 
