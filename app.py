@@ -1,8 +1,8 @@
 import os
+import uuid
+import requests
 from flask import Flask, render_template, request, send_file
 from moviepy.editor import VideoFileClip
-import yt_dlp
-import uuid
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -10,24 +10,25 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-def download_reel(url, output_filename):
-    #  Normalize 'reels/' URL to 'reel/' for yt-dlp compatibility
-    if "instagram.com/reels/" in url:
-        url = url.replace("instagram.com/reels/", "instagram.com/reel/")
-    
+def download_reel_with_api(insta_url, output_filename):
+    api_url = f"https://api.bhawanigarg.com/social/instagram/?url={insta_url}"
+    response = requests.get(api_url)
+    response.raise_for_status()
 
-    ydl_opts = {
-        'outtmpl': output_filename,
-        'quiet': True,
-        'noplaylist': True,
-        'format': 'mp4',
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-        },
-    }
+    data = response.json()
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    # Attempt to extract video URL (may vary based on API's structure)
+    video_url = data.get("data", {}).get("url")
+
+    if not video_url:
+        raise Exception("Could not retrieve video URL from API response.")
+
+    # Now download the actual video file
+    video_response = requests.get(video_url, stream=True)
+    with open(output_filename, "wb") as f:
+        for chunk in video_response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
 
 def convert_to_gif(input_path, output_path, start=None, end=None):
     clip = VideoFileClip(input_path)
@@ -47,14 +48,13 @@ def index():
         gif_path = os.path.join(DOWNLOAD_DIR, f"{unique_id}.gif")
 
         try:
-            download_reel(reel_url, video_path)
+            download_reel_with_api(reel_url, video_path)
             convert_to_gif(video_path, gif_path, start_time, end_time)
             return send_file(gif_path, as_attachment=True)
         except Exception as e:
             return f"<h3>Error: {str(e)}</h3>"
 
     return render_template("index.html")
-
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
