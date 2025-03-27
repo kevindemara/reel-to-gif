@@ -11,18 +11,27 @@ if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
 def download_reel(url, output_filename):
+    #  Normalize 'reels/' URL to 'reel/' for yt-dlp compatibility
+    if "instagram.com/reels/" in url:
+        url = url.replace("instagram.com/reels/", "instagram.com/reel/")
+    
+
     ydl_opts = {
         'outtmpl': output_filename,
         'quiet': True,
         'noplaylist': True,
         'format': 'mp4',
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
+        },
     }
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
 def convert_to_gif(input_path, output_path, start=None, end=None):
     clip = VideoFileClip(input_path)
-    if start is not None and end is not None:
+    if start and end:
         clip = clip.subclip(float(start), float(end))
     clip.write_gif(output_path, fps=10)
 
@@ -45,6 +54,7 @@ def index():
             return f"<h3>Error: {str(e)}</h3>"
 
     return render_template("index.html")
+
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
