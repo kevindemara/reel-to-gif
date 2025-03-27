@@ -10,7 +10,7 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# 🔐 Replace with your own RapidAPI key
+# 🔐 Replace with your own RapidAPI key when deploying live
 RAPIDAPI_HOST = "instagram-story-downloader-media-downloader.p.rapidapi.com"
 RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
 
@@ -31,7 +31,7 @@ def download_reel_with_api(insta_url, output_filename):
         print("✅ API returned JSON:", flush=True)
         print(data, flush=True)
 
-        # Save for debugging in browser
+        # Save to file in case we want to show it in the browser
         with open("api_debug_log.txt", "w") as f:
             f.write(str(data))
 
@@ -42,20 +42,16 @@ def download_reel_with_api(insta_url, output_filename):
             f.write(response.text)
         raise Exception("API response is not in JSON format.")
 
-    # Try to extract video URL
+    # ✅ Correct logic: 'media' is a direct video URL string
     video_url = None
     if isinstance(data, dict):
-        if "media" in data:
-            media = data.get("media")
-            if isinstance(media, list) and media and isinstance(media[0], dict):
-                video_url = media[0].get("url")
-        elif "url" in data:
-            video_url = data["url"]
+        if "media" in data and isinstance(data["media"], str):
+            video_url = data["media"]
 
     if not video_url:
         raise Exception("Could not retrieve video URL from API response.")
 
-    # Download the video
+    # Download video to file
     video_response = requests.get(video_url, stream=True)
     with open(output_filename, "wb") as f:
         for chunk in video_response.iter_content(chunk_size=1024):
