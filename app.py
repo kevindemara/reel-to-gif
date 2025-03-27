@@ -10,7 +10,7 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# ✅ Replace with your actual RapidAPI key
+# 🔐 Replace with your own RapidAPI key
 RAPIDAPI_HOST = "instagram-story-downloader-media-downloader.p.rapidapi.com"
 RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
 
@@ -28,21 +28,23 @@ def download_reel_with_api(insta_url, output_filename):
 
     try:
         data = response.json()
+        print("✅ API returned JSON:", flush=True)
+        print(data, flush=True)
+
+        # Save for debugging in browser
+        with open("api_debug_log.txt", "w") as f:
+            f.write(str(data))
+
     except ValueError:
-        # Not JSON - log and raise
-        print("🚨 API did not return JSON. Raw response:")
-        print(response.text[:500])
+        print("🚨 API did not return JSON. Raw response:", flush=True)
+        print(response.text[:500], flush=True)
+        with open("api_debug_log.txt", "w") as f:
+            f.write(response.text)
         raise Exception("API response is not in JSON format.")
 
-    # Try extracting the video URL
+    # Try to extract video URL
     video_url = None
-
     if isinstance(data, dict):
-        # Debug: print full response to logs
-        print("✅ API returned JSON. Full data:")
-        print(data)
-
-        # Try expected structure
         if "media" in data:
             media = data.get("media")
             if isinstance(media, list) and media and isinstance(media[0], dict):
@@ -82,7 +84,11 @@ def index():
             convert_to_gif(video_path, gif_path, start_time, end_time)
             return send_file(gif_path, as_attachment=True)
         except Exception as e:
-            return f"<h3>Error: {str(e)}</h3>"
+            debug = ""
+            if os.path.exists("api_debug_log.txt"):
+                with open("api_debug_log.txt") as f:
+                    debug = f.read()
+            return f"<h3>Error: {str(e)}</h3><pre>{debug}</pre>"
 
     return render_template("index.html")
 
