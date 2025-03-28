@@ -3,6 +3,7 @@ import uuid
 import requests
 from flask import Flask, render_template, request, send_file
 from moviepy.editor import VideoFileClip
+import imageio
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -10,7 +11,7 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# 🔐 Replace with your own RapidAPI key when deploying live
+# 🔐 Replace with your own key
 RAPIDAPI_HOST = "instagram-story-downloader-media-downloader.p.rapidapi.com"
 RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
 
@@ -28,21 +29,13 @@ def download_reel_with_api(insta_url, output_filename):
 
     try:
         data = response.json()
-        print("✅ API returned JSON:", flush=True)
-        print(data, flush=True)
-
-        # Save to file in case we want to show it in the browser
         with open("api_debug_log.txt", "w") as f:
             f.write(str(data))
-
     except ValueError:
-        print("🚨 API did not return JSON. Raw response:", flush=True)
-        print(response.text[:500], flush=True)
         with open("api_debug_log.txt", "w") as f:
             f.write(response.text)
         raise Exception("API response is not in JSON format.")
 
-    # ✅ Correct logic: 'media' is a direct video URL string
     video_url = None
     if isinstance(data, dict):
         if "media" in data and isinstance(data["media"], str):
@@ -51,18 +44,28 @@ def download_reel_with_api(insta_url, output_filename):
     if not video_url:
         raise Exception("Could not retrieve video URL from API response.")
 
-    # Download video to file
     video_response = requests.get(video_url, stream=True)
     with open(output_filename, "wb") as f:
         for chunk in video_response.iter_content(chunk_size=1024):
             if chunk:
                 f.write(chunk)
 
-def convert_to_gif(input_path, output_path, start=None, end=None):
+def convert_to_gif(input_path, output_path, start=None, end=None, palettesize=32):
     clip = VideoFileClip(input_path)
     if start and end:
         clip = clip.subclip(float(start), float(end))
-    clip.write_gif(output_path, fps=10)
+
+    temp_gif = output_path.replace(".gif", "_raw.gif")
+    clip.write_gif(temp_gif, fps=10)
+
+    reader = imageio.get_reader(temp_gif)
+    frames = [frame for frame in reader]
+
+    imageio.mimsave(output_path, frames, format='GIF',
+                    duration=clip.duration / len(frames),
+                    palettesize=palettesize)
+    
+    os.remove(temp_gif)
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -70,6 +73,14 @@ def index():
         reel_url = request.form['url']
         start_time = request.form.get('start')
         end_time = request.form.get('end')
+        quality = request.form.get('quality', 'medium')
+
+        palettesize_map = {
+            'low': 16,
+            'medium': 32,
+            'high': 64
+        }
+        palettesize = palettesize_map.get(quality, 32)
 
         unique_id = str(uuid.uuid4())
         video_path = os.path.join(DOWNLOAD_DIR, f"{unique_id}.mp4")
@@ -77,7 +88,7 @@ def index():
 
         try:
             download_reel_with_api(reel_url, video_path)
-            convert_to_gif(video_path, gif_path, start_time, end_time)
+            convert_to_gif(video_path, gif_path, start_time, end_time, palettesize)
             return send_file(gif_path, as_attachment=True)
         except Exception as e:
             debug = ""
@@ -87,7 +98,3 @@ def index():
             return f"<h3>Error: {str(e)}</h3><pre>{debug}</pre>"
 
     return render_template("index.html")
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
