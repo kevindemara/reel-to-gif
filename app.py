@@ -13,7 +13,7 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 # 🔐 Replace with your own key
 RAPIDAPI_HOST = "instagram-story-downloader-media-downloader.p.rapidapi.com"
-RAPIDAPI_KEY = "278c376dfdmsh7de75a21db734cbp10b07cjsn5cab6b5bb454"
+RAPIDAPI_KEY = "02412ef3a0msh908c9697f7e8943p1ed5d8jsn4eda7a4cbe29"
 
 def download_reel_with_api(insta_url, output_filename):
     url_encoded = requests.utils.quote(insta_url, safe="")
